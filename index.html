@@ -68,6 +68,7 @@ img{max-width:100%;display:block}
 .count{color:var(--muted);font-size:14px;margin:0 0 12px}
 .msg{background:var(--card);border-radius:18px;padding:24px 20px;text-align:center;color:var(--muted)}
 .msg b{display:block;color:var(--ink);font-weight:500;margin-bottom:4px}
+.switch{display:inline-flex;align-items:center;gap:6px;font-size:28px;font-weight:600;letter-spacing:-.01em;max-width:100%;text-align:left}.switch span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.switch svg{flex:none;width:18px;height:18px;fill:currentColor;stroke:none}
 .searchbox{flex:1;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--card);padding:0 14px;font:inherit;color:var(--ink)}
 .fab{position:fixed;right:max(18px,calc(50% - 342px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;z-index:6;box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .fab svg{width:28px;height:28px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round}
@@ -144,6 +145,7 @@ const I={
  chev:'<svg viewBox="0 0 24 24" width="18" height="18" style="stroke:currentColor;fill:none;stroke-width:2"><path d="M9 6l6 6-6 6"/></svg>',
  cam:'<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
  dots:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>',
+ caret:'<svg viewBox="0 0 24 24"><path d="M6 9h12l-6 7z"/></svg>',
  tick:'<svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>'
 };
 const S={db:null,assets:null,uid:null,items:[],outfits:[],ready:{items:false,outfits:false},fatal:"",
@@ -164,15 +166,15 @@ function gridOf(list){
   if(!list.length) return `<div class="msg"><b>No items yet</b>Tap + to add your first piece.</div>`;
   return `<div class="grid">${list.map(i=>`<button class="gcell" data-act="item" data-id="${i.id}"><div class="ph"><img src="${src(i.photo)}" alt="" loading="lazy"></div><div class="nm">${esc(i.name||i.sub||catName(i.cat))}</div></button>`).join("")}</div>`;
 }
-function topBar(title,{back=false,searchBtn=false,gridBtn=false,menu=false}={}){
+function topBar(title,{back=false,searchBtn=false,gridBtn=false,menu=false,switcher=false}={}){
   return `<div class="top">${back?`<button class="icon" data-act="back" aria-label="Back">${I.back}</button>`:""}
-  ${back?`<h2>${esc(title)}</h2>`:`<h1>${esc(title)}</h1>`}
+  ${back?`<h2>${esc(title)}</h2>`:switcher?`<h1><button class="switch" data-act="closets" aria-label="Switch closet"><span>${esc(title)}</span>${I.caret}</button></h1>`:`<h1>${esc(title)}</h1>`}
   ${searchBtn?`<button class="icon" data-act="search" aria-label="Search">${I.search}</button>`:""}
   ${gridBtn?`<button class="icon" data-act="grid" aria-label="${S.grid?"Show by category":"Show all as grid"}">${S.grid?I.list:I.grid}</button>`:back?`<span class="icon"></span>`:""}
   ${menu?`<button class="icon" data-act="account" aria-label="Account">${I.dots}</button>`:""}</div>`;
 }
 function viewHome(){
-  let h=topBar("My Closet",{searchBtn:true,gridBtn:true,menu:true});
+  let h=topBar(closetName(),{searchBtn:true,gridBtn:true,menu:true,switcher:true});
   if(S.grid){const all=[...S.items].sort(byNew);return h+`<p class="count">${all.length} item${all.length===1?"":"s"}</p>`+gridOf(all)}
   for(const c of CATS){
     const list=itemsIn(c.key);
@@ -203,7 +205,7 @@ function collage(o){
   return `<button class="collage" data-act="outfit" data-id="${o.id}"><div class="${box}">${pics.map(p=>`<img src="${src(p.photo)}" alt="" loading="lazy">`).join("")}</div><div class="nm">${esc(o.name||"Outfit")}</div></button>`;
 }
 function viewOutfits(){
-  let h=topBar("Outfits");
+  let h=topBar(closetName(),{switcher:true})+`<p class="count">Outfits</p>`;
   for(const occ of OCCS){const list=S.outfits.filter(o=>o.occasion===occ).sort(byNew);
     h+=`<section class="sec"><div class="sec-h"><b>${occ}</b><span>${list.length}</span></div><div class="row">${list.map(collage).join("")}${addTile("addOutfit",`data-occ="${occ}"`,"Add "+occ+" outfit")}</div></section>`}
   return h;
@@ -276,7 +278,7 @@ async function saveItem(){
     const data={name:E.name.trim(),cat:E.cat,sub:E.sub,color:E.color.trim(),brand:E.brand.trim(),season:E.season,notes:E.notes.trim(),photo:newPhoto||E.photo};
     const col=S.db.collection(`data/users/${S.uid}/items`);
     if(E.id){await col.doc(E.id).update(data);if(newPhoto&&E.photo)S.assets.delete(E.photo).catch(()=>{})}
-    else{data.created=Date.now();await col.add(data)}
+    else{data.created=Date.now();data.closet_id=S.closet;await col.add(data)}
     closeSheet();
   }catch(e){
     if(newPhoto)S.assets.delete(newPhoto).catch(()=>{});
@@ -326,7 +328,7 @@ async function saveOutfit(){
   try{
     const data={name:E.name.trim(),occasion:E.occasion,notes:E.notes.trim(),items:E.items};
     const col=S.db.collection(`data/users/${S.uid}/outfits`);
-    if(E.id)await col.doc(E.id).update(data);else{data.created=Date.now();await col.add(data)}
+    if(E.id)await col.doc(E.id).update(data);else{data.created=Date.now();data.closet_id=S.closet;await col.add(data)}
     closeSheet();
   }catch(e){E.saving=false;E.err="Couldn’t save. Check your connection and try again.";renderSheet()}
 }
@@ -339,7 +341,7 @@ async function delOutfit(){
 /* ---------- sheet plumbing ---------- */
 function renderSheet(){
   const y=document.getElementById("sheet").scrollTop;
-  document.getElementById("sheetIn").innerHTML=E.kind==="item"?sheetItem():E.kind==="account"?sheetAccount():sheetOutfit();
+  document.getElementById("sheetIn").innerHTML=E.kind==="item"?sheetItem():E.kind==="account"?sheetAccount():E.kind==="closets"?sheetClosets():sheetOutfit();
   document.getElementById("sheet").scrollTop=y;
 }
 function openSheet(){const s=document.getElementById("sheet");s.classList.add("open");s.scrollTop=0;document.body.style.overflow="hidden";renderSheet()}
@@ -364,6 +366,12 @@ document.addEventListener("click",e=>{
   else if(a==="close")closeSheet();
   else if(a==="account"){E={kind:"account",status:"",busy:false};openSheet()}
   else if(a==="refresh")refresh();
+  else if(a==="closets"){E={kind:"closets",renaming:null,confirmDel:false,err:"",busy:false};openSheet()}
+  else if(a==="pickCloset")pickCloset(b.dataset.id);
+  else if(a==="addCloset")addCloset();
+  else if(a==="renameCloset"){E.renaming=b.dataset.id;E.err="";renderSheet()}
+  else if(a==="saveRename")saveRename(b.dataset.id);
+  else if(a==="delCloset")delCloset();
   else if(a==="signOut")signOut();
   else if(a==="authMode"){S.auth={mode:b.dataset.mode};render()}
   else if(a==="saveItem")saveItem();
@@ -437,8 +445,8 @@ async function signOut(){closeSheet();await sb.auth.signOut()}
 /* ---------- Supabase storage ---------- */
 const CONFIGURED=!SUPABASE_URL.startsWith("PASTE")&&!SUPABASE_ANON_KEY.startsWith("PASTE");
 const sb=CONFIGURED&&window.supabase?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
-const COLS={items:["name","cat","sub","color","brand","season","notes","photo"],outfits:["name","occasion","notes","items"]};
-const DATA={items:[],outfits:[]};const listeners={};let signedAt=0,started=false;
+const COLS={items:["name","cat","sub","color","brand","season","notes","photo","closet_id"],outfits:["name","occasion","notes","items","closet_id"]};
+const DATA={items:[],outfits:[],closets:[]};const listeners={};let signedAt=0,started=false;
 const uuid=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
 const pick=(name,d)=>{const r={};for(const k of COLS[name])if(k in d)r[k]=d[k];return r};
 const fromRow=r=>{const {id,user_id,created_at,...rest}=r;return {id,...rest,created:Date.parse(created_at)||0}};
@@ -452,8 +460,12 @@ async function signPhotos(paths,force){
   }
 }
 async function loadAll(){
-  const [it,of]=await Promise.all([sb.from("items").select("*").order("created_at",{ascending:false}),sb.from("outfits").select("*").order("created_at",{ascending:false})]);
-  DATA.items=check(it).map(fromRow);DATA.outfits=check(of).map(fromRow);
+  const [it,of,cl]=await Promise.all([sb.from("items").select("*").order("created_at",{ascending:false}),sb.from("outfits").select("*").order("created_at",{ascending:false}),sb.from("closets").select("*").order("created_at",{ascending:true})]);
+  DATA.items=check(it).map(fromRow);DATA.outfits=check(of).map(fromRow);DATA.closets=check(cl).map(fromRow);
+  if(!DATA.closets.length)DATA.closets=[fromRow(check(await sb.from("closets").insert({name:"My Closet"}).select().single()))];
+  const first=DATA.closets[0].id;
+  for(const t of ["items","outfits"]){if(DATA[t].some(r=>!r.closet_id)){check(await sb.from(t).update({closet_id:first}).is("closet_id",null));DATA[t].forEach(r=>{if(!r.closet_id)r.closet_id=first})}}
+  if(!DATA.closets.some(c=>c.id===S.closet)){let saved=null;try{saved=localStorage.getItem("closet.current."+S.uid)}catch(e){}S.closet=DATA.closets.some(c=>c.id===saved)?saved:first}
   const force=Date.now()-signedAt>3*864e5;
   await signPhotos(DATA.items.map(i=>i.photo).filter(Boolean),force);if(force)signedAt=Date.now();
   notify("items");notify("outfits");
@@ -475,18 +487,61 @@ const cloudAssets={
   async delete(path){check(await sb.storage.from("photos").remove([path]));delete URLS[path]}
 };
 
+/* ---------- closets ---------- */
+function closetName(){return (DATA.closets.find(c=>c.id===S.closet)||{}).name||"My Closet"}
+function applyCloset(){S.items=(S.allItems||[]).filter(i=>i.closet_id===S.closet);S.outfits=(S.allOutfits||[]).filter(o=>o.closet_id===S.closet)}
+function rememberCloset(){try{localStorage.setItem("closet.current."+S.uid,S.closet)}catch(e){}}
+function sheetClosets(){
+  const cur=closetName();
+  return `<div class="top"><button class="icon" data-act="close" aria-label="Close">${I.close}</button><h2>Closets</h2><span class="icon"></span></div>
+  <div class="fields">${DATA.closets.map(c=>{const n=(S.allItems||[]).filter(i=>i.closet_id===c.id).length;
+    return E.renaming===c.id
+    ?`<div class="field"><input id="rn" value="${esc(c.name)}" aria-label="Closet name"><button class="save" data-act="saveRename" data-id="${c.id}" ${E.busy?"disabled":""}>Save</button></div>`
+    :`<div class="field"><button data-act="pickCloset" data-id="${c.id}" style="flex:1;text-align:left;padding:6px 0"><span style="font-weight:${c.id===S.closet?600:400}">${esc(c.name)}</span><span class="note" style="display:block;margin:0">${n} item${n===1?"":"s"}${c.id===S.closet?", showing now":""}</span></button><button data-act="renameCloset" data-id="${c.id}" style="color:var(--accent);font-size:15px">Rename</button></div>`}).join("")}</div>
+  <p class="label">Add a closet</p>
+  <div class="fields"><div class="field"><input id="newCloset" placeholder="e.g. Son’s closet" aria-label="New closet name"><button class="save" data-act="addCloset" ${E.busy?"disabled":""}>Add</button></div></div>
+  ${E.err?`<p class="err">${esc(E.err)}</p>`:""}
+  ${DATA.closets.length>1?`<button class="danger" data-act="delCloset" style="margin-top:20px">${E.confirmDel?`Tap again to delete ${esc(cur)} and everything in it`:`Delete ${esc(cur)}`}</button>`:""}`;
+}
+function pickCloset(id){S.closet=id;rememberCloset();applyCloset();S.view={name:"home"};S.grid=false;closeSheet();window.scrollTo(0,0)}
+async function addCloset(){
+  const name=(document.getElementById("newCloset").value||"").trim();
+  if(!name){E.err="Type a name for the new closet.";renderSheet();return}
+  E.busy=true;E.err="";renderSheet();
+  try{const row=fromRow(check(await sb.from("closets").insert({name}).select().single()));DATA.closets.push(row);pickCloset(row.id)}
+  catch(e){E.busy=false;E.err="Couldn’t add the closet. Check your connection and try again.";renderSheet()}
+}
+async function saveRename(id){
+  const name=(document.getElementById("rn").value||"").trim();
+  if(!name){E.err="Name can’t be empty.";renderSheet();return}
+  E.busy=true;renderSheet();
+  try{const row=fromRow(check(await sb.from("closets").update({name}).eq("id",id).select().single()));DATA.closets=DATA.closets.map(c=>c.id===id?row:c);E.renaming=null;E.busy=false;E.err="";renderSheet();render()}
+  catch(e){E.busy=false;E.err="Couldn’t rename. Check your connection and try again.";renderSheet()}
+}
+async function delCloset(){
+  if(!E.confirmDel){E.confirmDel=true;renderSheet();return}
+  E.busy=true;renderSheet();
+  try{
+    const id=S.closet,photos=(S.allItems||[]).filter(i=>i.closet_id===id).map(i=>i.photo).filter(Boolean);
+    check(await sb.from("closets").delete().eq("id",id));
+    for(let i=0;i<photos.length;i+=100){await sb.storage.from("photos").remove(photos.slice(i,i+100))}
+    DATA.closets=DATA.closets.filter(c=>c.id!==id);DATA.items=DATA.items.filter(r=>r.closet_id!==id);DATA.outfits=DATA.outfits.filter(r=>r.closet_id!==id);
+    notify("items");notify("outfits");pickCloset(DATA.closets[0].id);
+  }catch(e){E.busy=false;E.confirmDel=false;E.err="Couldn’t delete the closet. Check your connection and try again.";renderSheet()}
+}
+
 /* ---------- session ---------- */
 async function start(session){
   S.session=session;S.uid=session.user.id;S.email=session.user.email;S.db=cloudDB;S.assets=cloudAssets;
   S.auth={mode:"login"};S.fatal="";S.ready={items:false,outfits:false};render();
   if(!started){started=true;
-    cloudDB.collection("items").onSnapshot(s=>{S.items=s.docs.map(d=>({id:d.id,...d.data()})).filter(i=>i.photo);S.ready.items=true;render()});
-    cloudDB.collection("outfits").onSnapshot(s=>{S.outfits=s.docs.map(d=>({id:d.id,...d.data()}));S.ready.outfits=true;render()});
+    cloudDB.collection("items").onSnapshot(s=>{S.allItems=s.docs.map(d=>({id:d.id,...d.data()})).filter(i=>i.photo);S.ready.items=true;applyCloset();render()});
+    cloudDB.collection("outfits").onSnapshot(s=>{S.allOutfits=s.docs.map(d=>({id:d.id,...d.data()}));S.ready.outfits=true;applyCloset();render()});
   }
   try{await loadAll()}catch(e){const d=[e&&e.code,e&&e.message,e&&e.hint].filter(Boolean).join(" | ")||String(e);S.fatal="<b>Couldn’t load your closet</b>Check your connection and reload the page.<br><small style=\"display:block;margin-top:10px;word-break:break-word\">Details: "+esc(d)+"</small>";render()}
 }
 function signedOut(){
-  S.session=null;S.items=[];S.outfits=[];DATA.items=[];DATA.outfits=[];for(const k in URLS)delete URLS[k];signedAt=0;
+  S.session=null;S.items=[];S.outfits=[];S.allItems=[];S.allOutfits=[];S.closet=null;DATA.items=[];DATA.outfits=[];DATA.closets=[];for(const k in URLS)delete URLS[k];signedAt=0;
   S.tab="closet";S.view={name:"home"};S.authChecked=true;if(E)closeSheet();else render();
 }
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&S.session&&!E)loadAll().catch(()=>{})});
