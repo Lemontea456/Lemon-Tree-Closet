@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Closet</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F3F1;--card:#FFFFFF;--ink:#1D1E22;--muted:#73757D;--line:#E4E4E0;
+  --tile:#EFEFEC;--accent:#2F5D50;--accent-ink:#FFFFFF;--danger:#B3261E;--photo:#F7F7F5;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151617;--card:#1F2022;--ink:#EDEDEA;--muted:#9A9CA3;--line:#2E3033;
+    --tile:#2A2B2E;--accent:#7FB8A6;--accent-ink:#0E1A16;--danger:#F2867E;--photo:#F2F2EF;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151617;--card:#1F2022;--ink:#EDEDEA;--muted:#9A9CA3;--line:#2E3033;
+  --tile:#2A2B2E;--accent:#7FB8A6;--accent-ink:#0E1A16;--danger:#F2867E;--photo:#F2F2EF;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Outfit",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+img{max-width:100%;display:block}
+#app{max-width:720px;margin:0 auto;padding:0 16px 110px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;gap:8px;padding:14px 0 12px}
+.top h1{font-size:28px;font-weight:600;margin:0;flex:1;letter-spacing:-.01em}
+.top h2{font-size:20px;font-weight:500;margin:0;flex:1;text-align:center}
+.icon{width:40px;height:40px;display:grid;place-items:center;border-radius:12px;flex:none}
+.icon svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.icon:active{background:var(--tile)}
+.sec{background:var(--card);border-radius:18px;padding:16px 16px 18px;margin-bottom:14px}
+.sec-h{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;margin-bottom:12px}
+.sec-h b{font-size:20px;font-weight:500}
+.sec-h span{color:var(--muted);font-size:16px}
+.sec-h .chev{margin-left:auto;color:var(--muted);align-self:center}
+.row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.row::-webkit-scrollbar{display:none}
+.thumb,.addtile{flex:none;width:104px;height:104px;border-radius:12px;overflow:hidden}
+.thumb{background:var(--photo)}
+.thumb img{width:100%;height:100%;object-fit:contain}
+.addtile{background:var(--tile);display:grid;place-items:center;color:var(--muted)}
+.addtile svg{width:30px;height:30px;stroke:currentColor;stroke-width:1.5;fill:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.gcell{text-align:left}
+.gcell .ph{aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--photo)}
+.gcell .ph img{width:100%;height:100%;object-fit:contain}
+.gcell .nm{font-size:13px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.collage{flex:none;width:132px;text-align:left}
+.collage .box{width:132px;height:132px;border-radius:12px;overflow:hidden;background:var(--photo);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px}
+.collage .box.one{grid-template-columns:1fr;grid-template-rows:1fr}
+.collage .box img{width:100%;height:100%;object-fit:contain;background:var(--photo)}
+.collage .nm{font-size:13px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count{color:var(--muted);font-size:14px;margin:0 0 12px}
+.msg{background:var(--card);border-radius:18px;padding:24px 20px;text-align:center;color:var(--muted)}
+.msg b{display:block;color:var(--ink);font-weight:500;margin-bottom:4px}
+.searchbox{flex:1;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--card);padding:0 14px;font:inherit;color:var(--ink)}
+.fab{position:fixed;right:max(18px,calc(50% - 342px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;z-index:6;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.fab svg{width:28px;height:28px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);display:flex;justify-content:center}
+.tabs button{flex:0 1 180px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 6px;color:var(--muted);font-size:13px}
+.tabs button[aria-current="true"]{color:var(--accent);font-weight:500}
+.tabs svg{width:26px;height:26px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linejoin:round;stroke-linecap:round}
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:20;background:var(--bg);overflow-y:auto;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);display:none}
+.sheet.open{display:block}
+.sheet-in{max-width:620px;margin:0 auto;padding:0 16px 40px}
+.sheet .top{top:0}
+.save{height:38px;padding:0 16px;border-radius:19px;background:var(--accent);color:var(--accent-ink);font-weight:500}
+.save[disabled]{opacity:.55}
+.photo-pick{display:block;position:relative;width:100%;max-width:340px;aspect-ratio:1;margin:4px auto 18px;border-radius:18px;overflow:hidden;background:var(--photo);cursor:pointer}
+.photo-pick img{width:100%;height:100%;object-fit:contain}
+.photo-pick .empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#73757D;background:var(--tile)}
+.photo-pick .empty svg{width:40px;height:40px;stroke:currentColor;fill:none;stroke-width:1.5}
+.photo-pick .chg{position:absolute;right:10px;bottom:10px;background:rgba(29,30,34,.75);color:#fff;font-size:13px;padding:6px 12px;border-radius:14px}
+.photo-pick input{position:absolute;width:1px;height:1px;opacity:0}
+.fields{background:var(--card);border-radius:18px;padding:4px 16px;margin-bottom:14px}
+.field{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.field:last-child{border-bottom:0}
+.field label{width:96px;flex:none;color:var(--muted);font-size:15px}
+.field input,.field select,.field textarea{flex:1;min-width:0;border:0;background:transparent;font:inherit;color:var(--ink);padding:6px 0}
+.field textarea{resize:vertical;min-height:44px}
+.field select{appearance:none;-webkit-appearance:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{height:34px;padding:0 14px;border-radius:17px;background:var(--card);border:1px solid var(--line);font-size:14px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.label{font-size:15px;color:var(--muted);margin:18px 2px 10px}
+.pick{position:relative}
+.pick .tick{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:rgba(29,30,34,.25);display:grid;place-items:center}
+.pick[aria-pressed="true"] .ph{outline:3px solid var(--accent);outline-offset:-3px}
+.pick[aria-pressed="true"] .tick{background:var(--accent);border-color:var(--accent)}
+.pick .tick svg{width:14px;height:14px;stroke:var(--accent-ink);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.danger{display:block;width:100%;height:48px;border-radius:14px;background:var(--card);color:var(--danger);font-weight:500;margin-top:8px}
+.err{color:var(--danger);font-size:14px;margin:0 2px 12px}
+.note{color:var(--muted);font-size:14px;margin:0 2px 12px}
+.login{max-width:380px;margin:10vh auto 0}.login h1{font-size:34px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}.login .sub{color:var(--muted);margin:0 0 22px}.login .save{width:100%;height:48px;border-radius:14px;margin-top:4px}.linkbtn{display:block;margin:16px auto 0;color:var(--accent);font-size:15px}
+@media (prefers-reduced-motion:no-preference){.sheet.open{animation:up .22s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<button class="fab" id="fab" aria-label="Add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+<nav class="tabs" id="tabs">
+  <button data-act="tab" data-tab="closet"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18M9.5 11v2M14.5 11v2"/></svg>Closet</button>
+  <button data-act="tab" data-tab="outfits"><svg viewBox="0 0 24 24"><path d="M8 3l-4 3 2 4 2-1v12h8V9l2 1 2-4-4-3a4 4 0 0 1-8 0z"/></svg>Outfits</button>
+</nav>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="sheet-in" id="sheetIn"></div></div>
+
+<script>
+/* ===== Paste your two Supabase values here ===== */
+const SUPABASE_URL="PASTE_PROJECT_URL_HERE";
+const SUPABASE_ANON_KEY="PASTE_ANON_KEY_HERE";
+/* ================================================ */
+const CATS=[
+ {key:"tops",name:"Tops",subs:["T-Shirts","Hoodies","Shirts","Sweaters","Jackets"]},
+ {key:"bottoms",name:"Bottoms",subs:["Jeans","Sports Pants","Leggings","Skirts"]},
+ {key:"shoes",name:"Shoes",subs:["Leather Shoes","Sports Shoes","Canvas Shoes"]},
+ {key:"bags",name:"Bags",subs:["Wallets","Crossbody Bags","Handbags","Backpacks"]},
+ {key:"accessories",name:"Accessories",subs:["Hats","Scarves","Necklaces","Sunglasses","Watches"]}
+];
+const OCCS=["Work","Casual","Party","Formal","Vacation","Sports","Home"];
+const SEASONS=["","All seasons","Spring","Summer","Fall","Winter"];
+const I={
+ search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
+ grid:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>',
+ list:'<svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14"/></svg>',
+ back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+ close:'<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+ plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+ chev:'<svg viewBox="0 0 24 24" width="18" height="18" style="stroke:currentColor;fill:none;stroke-width:2"><path d="M9 6l6 6-6 6"/></svg>',
+ cam:'<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+ dots:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>',
+ tick:'<svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>'
+};
+const S={db:null,assets:null,uid:null,items:[],outfits:[],ready:{items:false,outfits:false},fatal:"",
+  session:null,authChecked:false,auth:{mode:"login"},authEmail:"",tab:"closet",view:{name:"home"},grid:false,q:"",sheet:null};
+let E=null; // editor state
+
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const catName=k=>(CATS.find(c=>c.key===k)||{}).name||"";
+const URLS={};const src=id=>URLS[id]||"";
+const byNew=(a,b)=>(b.created||0)-(a.created||0);
+const itemsIn=(cat,sub)=>S.items.filter(i=>i.cat===cat&&(sub===undefined||(i.sub||"")===sub)).sort(byNew);
+const itemById=id=>S.items.find(i=>i.id===id);
+
+/* ---------- main views ---------- */
+function thumb(i){return `<button class="thumb" data-act="item" data-id="${i.id}" aria-label="${esc(i.name||"Item")}"><img src="${src(i.photo)}" alt="" loading="lazy"></button>`}
+function addTile(act,attrs,label){return `<button class="addtile" data-act="${act}" ${attrs} aria-label="${esc(label)}">${I.plus}</button>`}
+function gridOf(list){
+  if(!list.length) return `<div class="msg"><b>No items yet</b>Tap + to add your first piece.</div>`;
+  return `<div class="grid">${list.map(i=>`<button class="gcell" data-act="item" data-id="${i.id}"><div class="ph"><img src="${src(i.photo)}" alt="" loading="lazy"></div><div class="nm">${esc(i.name||i.sub||catName(i.cat))}</div></button>`).join("")}</div>`;
+}
+function topBar(title,{back=false,searchBtn=false,gridBtn=false,menu=false}={}){
+  return `<div class="top">${back?`<button class="icon" data-act="back" aria-label="Back">${I.back}</button>`:""}
+  ${back?`<h2>${esc(title)}</h2>`:`<h1>${esc(title)}</h1>`}
+  ${searchBtn?`<button class="icon" data-act="search" aria-label="Search">${I.search}</button>`:""}
+  ${gridBtn?`<button class="icon" data-act="grid" aria-label="${S.grid?"Show by category":"Show all as grid"}">${S.grid?I.list:I.grid}</button>`:back?`<span class="icon"></span>`:""}
+  ${menu?`<button class="icon" data-act="account" aria-label="Account">${I.dots}</button>`:""}</div>`;
+}
+function viewHome(){
+  let h=topBar("My Closet",{searchBtn:true,gridBtn:true,menu:true});
+  if(S.grid){const all=[...S.items].sort(byNew);return h+`<p class="count">${all.length} item${all.length===1?"":"s"}</p>`+gridOf(all)}
+  for(const c of CATS){
+    const list=itemsIn(c.key);
+    h+=`<section class="sec"><button class="sec-h" data-act="cat" data-cat="${c.key}"><b>${c.name}</b><span>${list.length}</span><span class="chev">${I.chev}</span></button>
+    <div class="row">${list.map(thumb).join("")}${addTile("add",`data-cat="${c.key}"`,"Add to "+c.name)}</div></section>`;
+  }
+  return h;
+}
+function viewCat(key){
+  const c=CATS.find(x=>x.key===key);let h=topBar(c.name,{back:true,gridBtn:true});
+  if(S.grid) return h+gridOf(itemsIn(key));
+  const known=new Set(c.subs);
+  const loose=itemsIn(key).filter(i=>!known.has(i.sub||""));
+  if(loose.length) h+=`<section class="sec"><div class="sec-h"><b>No category</b><span>${loose.length}</span></div><div class="row">${loose.map(thumb).join("")}${addTile("add",`data-cat="${key}" data-sub=""`,"Add to "+c.name)}</div></section>`;
+  for(const s of c.subs){const list=itemsIn(key,s);
+    h+=`<section class="sec"><div class="sec-h"><b>${esc(s)}</b><span>${list.length}</span></div><div class="row">${list.map(thumb).join("")}${addTile("add",`data-cat="${key}" data-sub="${esc(s)}"`,"Add to "+s)}</div></section>`}
+  return h;
+}
+function viewSearch(){
+  const q=S.q.trim().toLowerCase();
+  const list=q?S.items.filter(i=>[i.name,i.sub,catName(i.cat),i.color,i.brand,i.season,i.notes].join(" ").toLowerCase().includes(q)).sort(byNew):[];
+  return `<div class="top"><button class="icon" data-act="back" aria-label="Back">${I.back}</button><input class="searchbox" id="q" type="search" placeholder="Search name, color, brand" value="${esc(S.q)}" autocomplete="off"></div>
+  <div id="results">${q?(list.length?`<p class="count">${list.length} found</p>`+gridOf(list):`<div class="msg"><b>No matches</b>Try a different word.</div>`):`<p class="note">Search across all your items.</p>`}</div>`;
+}
+function collage(o){
+  const pics=(o.items||[]).map(itemById).filter(Boolean).slice(0,4);
+  const box=pics.length===1?"box one":"box";
+  return `<button class="collage" data-act="outfit" data-id="${o.id}"><div class="${box}">${pics.map(p=>`<img src="${src(p.photo)}" alt="" loading="lazy">`).join("")}</div><div class="nm">${esc(o.name||"Outfit")}</div></button>`;
+}
+function viewOutfits(){
+  let h=topBar("Outfits");
+  for(const occ of OCCS){const list=S.outfits.filter(o=>o.occasion===occ).sort(byNew);
+    h+=`<section class="sec"><div class="sec-h"><b>${occ}</b><span>${list.length}</span></div><div class="row">${list.map(collage).join("")}${addTile("addOutfit",`data-occ="${occ}"`,"Add "+occ+" outfit")}</div></section>`}
+  return h;
+}
+function render(){
+  const app=document.getElementById("app");
+  document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",String(b.dataset.tab===S.tab)));
+  const chrome=!S.fatal&&S.session;
+  document.getElementById("fab").style.display=chrome?"":"none";
+  document.getElementById("tabs").style.display=chrome?"":"none";
+  if(S.fatal){app.innerHTML=topBar("My Closet")+`<div class="msg">${S.fatal}</div>`;return}
+  if(!S.session){app.innerHTML=S.authChecked||S.auth.mode==="recovery"?viewLogin():topBar("My Closet")+`<div class="msg">Loading...</div>`;return}
+  if(!S.ready.items||!S.ready.outfits){app.innerHTML=topBar("My Closet")+`<div class="msg">Loading your closet...</div>`;return}
+  if(S.tab==="outfits"){app.innerHTML=viewOutfits();return}
+  const v=S.view;
+  app.innerHTML=v.name==="cat"?viewCat(v.cat):v.name==="search"?viewSearch():viewHome();
+  if(v.name==="search"){const q=document.getElementById("q");q.addEventListener("input",()=>{S.q=q.value;const r=viewSearch();const tmp=document.createElement("div");tmp.innerHTML=r;document.getElementById("results").replaceWith(tmp.querySelector("#results"))});if(!S.q)q.focus()}
+}
+
+/* ---------- item editor ---------- */
+function openItem(id,preset={}){
+  const it=id?itemById(id):null;
+  E={kind:"item",id:it?.id||null,name:it?.name||"",cat:it?.cat||preset.cat||"tops",sub:it?(it.sub||""):(preset.sub??""),
+     color:it?.color||"",brand:it?.brand||"",season:it?.season||"",notes:it?.notes||"",
+     photo:it?.photo||null,file:null,preview:null,saving:false,err:"",confirmDel:false};
+  openSheet();
+}
+function sheetItem(){
+  const c=CATS.find(x=>x.key===E.cat);
+  const img=E.preview||(E.photo?src(E.photo):null);
+  const usedIn=E.id?S.outfits.filter(o=>(o.items||[]).includes(E.id)).length:0;
+  return `<div class="top"><button class="icon" data-act="close" aria-label="Close">${I.close}</button><h2>${E.id?"Edit item":"Add item"}</h2>
+  <button class="save" data-act="saveItem" ${E.saving?"disabled":""}>${E.saving?"Saving...":"Save"}</button></div>
+  <label class="photo-pick">${img?`<img src="${img}" alt="Item photo"><span class="chg">Change photo</span>`:`<span class="empty">${I.cam}<span>Take or choose a photo</span></span>`}
+    <input type="file" id="file" accept="image/*"></label>
+  ${E.err?`<p class="err">${esc(E.err)}</p>`:""}
+  <div class="fields">
+    <div class="field"><label for="f-name">Name</label><input id="f-name" data-f="name" value="${esc(E.name)}" placeholder="e.g. Beige cargo pants"></div>
+    <div class="field"><label for="f-cat">Category</label><select id="f-cat" data-f="cat">${CATS.map(x=>`<option value="${x.key}" ${x.key===E.cat?"selected":""}>${x.name}</option>`).join("")}</select></div>
+    <div class="field"><label for="f-sub">Type</label><select id="f-sub" data-f="sub"><option value="">No category</option>${c.subs.map(s=>`<option ${s===E.sub?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
+    <div class="field"><label for="f-color">Color</label><input id="f-color" data-f="color" value="${esc(E.color)}"></div>
+    <div class="field"><label for="f-brand">Brand</label><input id="f-brand" data-f="brand" value="${esc(E.brand)}"></div>
+    <div class="field"><label for="f-season">Season</label><select id="f-season" data-f="season">${SEASONS.map(s=>`<option value="${s}" ${s===E.season?"selected":""}>${s||"Not set"}</option>`).join("")}</select></div>
+    <div class="field"><label for="f-notes">Notes</label><textarea id="f-notes" data-f="notes" rows="2">${esc(E.notes)}</textarea></div>
+  </div>
+  ${E.id?`${usedIn?`<p class="note">Used in ${usedIn} outfit${usedIn===1?"":"s"}. Deleting removes it from ${usedIn===1?"that outfit":"those outfits"}.</p>`:""}
+  <button class="danger" data-act="delItem">${E.confirmDel?"Tap again to delete":"Delete item"}</button>`:""}`;
+}
+async function compress(file){
+  try{
+    const url=URL.createObjectURL(file);const img=new Image();img.src=url;await img.decode();
+    const max=1400,r=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+    const cv=document.createElement("canvas");cv.width=Math.round(img.naturalWidth*r);cv.height=Math.round(img.naturalHeight*r);
+    const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,cv.width,cv.height);ctx.drawImage(img,0,0,cv.width,cv.height);
+    URL.revokeObjectURL(url);
+    return await new Promise(res=>cv.toBlob(b=>res(b),"image/jpeg",0.85));
+  }catch(e){return null}
+}
+async function saveItem(){
+  if(E.saving)return;
+  if(!E.photo&&!E.file){E.err="Add a photo first.";renderSheet();return}
+  E.saving=true;E.err="";renderSheet();
+  let newPhoto=null;
+  try{
+    if(E.file){
+      let blob=await compress(E.file);
+      if(!blob){if(/^image\/(jpeg|png|webp|gif)$/.test(E.file.type))blob=E.file;else throw {friendly:"This photo format can’t be read here. Save it as JPEG or PNG and try again."}}
+      const up=await S.assets.upload(blob);newPhoto=up.id;
+    }
+    const data={name:E.name.trim(),cat:E.cat,sub:E.sub,color:E.color.trim(),brand:E.brand.trim(),season:E.season,notes:E.notes.trim(),photo:newPhoto||E.photo};
+    const col=S.db.collection(`data/users/${S.uid}/items`);
+    if(E.id){await col.doc(E.id).update(data);if(newPhoto&&E.photo)S.assets.delete(E.photo).catch(()=>{})}
+    else{data.created=Date.now();await col.add(data)}
+    closeSheet();
+  }catch(e){
+    if(newPhoto)S.assets.delete(newPhoto).catch(()=>{});
+    E.saving=false;E.err=(e&&e.friendly)||"Couldn’t save. Check your connection and try again.";renderSheet();
+  }
+}
+async function delItem(){
+  if(!E.confirmDel){E.confirmDel=true;renderSheet();return}
+  try{
+    const id=E.id,photo=E.photo;
+    for(const o of S.outfits.filter(o=>(o.items||[]).includes(id))){
+      await S.db.collection(`data/users/${S.uid}/outfits`).doc(o.id).update({items:o.items.filter(x=>x!==id)});
+    }
+    await S.db.collection(`data/users/${S.uid}/items`).doc(id).delete();
+    if(photo&&S.assets)S.assets.delete(photo).catch(()=>{});
+    closeSheet();
+  }catch(e){E.err="Couldn’t delete. Check your connection and try again.";E.confirmDel=false;renderSheet()}
+}
+
+/* ---------- outfit editor ---------- */
+function openOutfit(id,occ){
+  const o=id?S.outfits.find(x=>x.id===id):null;
+  E={kind:"outfit",id:o?.id||null,name:o?.name||"",occasion:o?.occasion||occ||"Casual",notes:o?.notes||"",
+     items:[...(o?.items||[])].filter(itemById),filter:"all",saving:false,err:"",confirmDel:false};
+  openSheet();
+}
+function sheetOutfit(){
+  const list=(E.filter==="all"?[...S.items]:S.items.filter(i=>i.cat===E.filter)).sort(byNew);
+  return `<div class="top"><button class="icon" data-act="close" aria-label="Close">${I.close}</button><h2>${E.id?"Edit outfit":"New outfit"}</h2>
+  <button class="save" data-act="saveOutfit" ${E.saving?"disabled":""}>${E.saving?"Saving...":"Save"}</button></div>
+  ${E.err?`<p class="err">${esc(E.err)}</p>`:""}
+  <div class="fields">
+    <div class="field"><label for="o-name">Name</label><input id="o-name" data-f="name" value="${esc(E.name)}" placeholder="e.g. Friday office look"></div>
+    <div class="field"><label for="o-notes">Notes</label><textarea id="o-notes" data-f="notes" rows="2">${esc(E.notes)}</textarea></div>
+  </div>
+  <p class="label">Occasion</p>
+  <div class="chips">${OCCS.map(o=>`<button class="chip" data-act="occ" data-occ="${o}" aria-pressed="${o===E.occasion}">${o}</button>`).join("")}</div>
+  <p class="label">Pick items (${E.items.length} selected)</p>
+  <div class="chips"><button class="chip" data-act="filt" data-cat="all" aria-pressed="${E.filter==="all"}">All</button>${CATS.map(c=>`<button class="chip" data-act="filt" data-cat="${c.key}" aria-pressed="${E.filter===c.key}">${c.name}</button>`).join("")}</div>
+  ${S.items.length?(list.length?`<div class="grid">${list.map(i=>`<button class="gcell pick" data-act="pick" data-id="${i.id}" aria-pressed="${E.items.includes(i.id)}"><div class="ph"><img src="${src(i.photo)}" alt="" loading="lazy"></div><span class="tick">${I.tick}</span><div class="nm">${esc(i.name||i.sub||catName(i.cat))}</div></button>`).join("")}</div>`:`<div class="msg">No items in this category.</div>`):`<div class="msg"><b>Your closet is empty</b>Add items in the Closet tab first.</div>`}
+  ${E.id?`<button class="danger" data-act="delOutfit" style="margin-top:20px">${E.confirmDel?"Tap again to delete":"Delete outfit"}</button>`:""}`;
+}
+async function saveOutfit(){
+  if(E.saving)return;
+  if(!E.items.length){E.err="Pick at least one item.";renderSheet();return}
+  E.saving=true;E.err="";renderSheet();
+  try{
+    const data={name:E.name.trim(),occasion:E.occasion,notes:E.notes.trim(),items:E.items};
+    const col=S.db.collection(`data/users/${S.uid}/outfits`);
+    if(E.id)await col.doc(E.id).update(data);else{data.created=Date.now();await col.add(data)}
+    closeSheet();
+  }catch(e){E.saving=false;E.err="Couldn’t save. Check your connection and try again.";renderSheet()}
+}
+async function delOutfit(){
+  if(!E.confirmDel){E.confirmDel=true;renderSheet();return}
+  try{await S.db.collection(`data/users/${S.uid}/outfits`).doc(E.id).delete();closeSheet()}
+  catch(e){E.err="Couldn’t delete. Check your connection and try again.";E.confirmDel=false;renderSheet()}
+}
+
+/* ---------- sheet plumbing ---------- */
+function renderSheet(){
+  const y=document.getElementById("sheet").scrollTop;
+  document.getElementById("sheetIn").innerHTML=E.kind==="item"?sheetItem():E.kind==="account"?sheetAccount():sheetOutfit();
+  document.getElementById("sheet").scrollTop=y;
+}
+function openSheet(){const s=document.getElementById("sheet");s.classList.add("open");s.scrollTop=0;document.body.style.overflow="hidden";renderSheet()}
+function closeSheet(){if(E&&E.preview)URL.revokeObjectURL(E.preview);E=null;document.getElementById("sheet").classList.remove("open");document.body.style.overflow="";render()}
+
+document.getElementById("sheet").addEventListener("input",e=>{const f=e.target.dataset.f;if(f&&E){E[f]=e.target.value;if(f==="cat"){E.sub="";renderSheet()}}});
+document.getElementById("sheet").addEventListener("change",e=>{
+  if(e.target.id==="file"&&E){const f=e.target.files[0];if(!f)return;if(E.preview)URL.revokeObjectURL(E.preview);E.file=f;E.preview=URL.createObjectURL(f);E.err="";renderSheet();return}
+  const f=e.target.dataset.f;if(f&&E){E[f]=e.target.value;if(f==="cat"){E.sub="";renderSheet()}}
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act;
+  if(a==="tab"){S.tab=b.dataset.tab;S.view={name:"home"};S.grid=false;render();window.scrollTo(0,0)}
+  else if(a==="cat"){S.view={name:"cat",cat:b.dataset.cat};S.grid=false;render();window.scrollTo(0,0)}
+  else if(a==="back"){S.view={name:"home"};S.grid=false;S.q="";render()}
+  else if(a==="search"){S.view={name:"search"};render()}
+  else if(a==="grid"){S.grid=!S.grid;render()}
+  else if(a==="item")openItem(b.dataset.id);
+  else if(a==="add")openItem(null,{cat:b.dataset.cat,sub:b.dataset.sub});
+  else if(a==="outfit")openOutfit(b.dataset.id);
+  else if(a==="addOutfit")openOutfit(null,b.dataset.occ);
+  else if(a==="close")closeSheet();
+  else if(a==="account"){E={kind:"account",status:"",busy:false};openSheet()}
+  else if(a==="refresh")refresh();
+  else if(a==="signOut")signOut();
+  else if(a==="authMode"){S.auth={mode:b.dataset.mode};render()}
+  else if(a==="saveItem")saveItem();
+  else if(a==="delItem")delItem();
+  else if(a==="saveOutfit")saveOutfit();
+  else if(a==="delOutfit")delOutfit();
+  else if(a==="occ"){E.occasion=b.dataset.occ;renderSheet()}
+  else if(a==="filt"){E.filter=b.dataset.cat;renderSheet()}
+  else if(a==="pick"){const id=b.dataset.id;E.items=E.items.includes(id)?E.items.filter(x=>x!==id):[...E.items,id];renderSheet()}
+});
+document.getElementById("fab").addEventListener("click",()=>{
+  if(S.tab==="outfits")openOutfit(null,"Casual");
+  else openItem(null,S.view.name==="cat"?{cat:S.view.cat}:{});
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&E)closeSheet()});
+
+/* ---------- login screens ---------- */
+function viewLogin(){
+  const A=S.auth,m=A.mode;
+  const title=m==="forgot"?"Reset password":m==="recovery"?"Set a new password":"My Closet";
+  const sub=m==="forgot"?"We’ll email you a link to set a new password.":m==="recovery"?"Choose a password with at least 8 characters.":"Sign in to see your closet.";
+  return `<div class="login"><h1>${title}</h1><p class="sub">${sub}</p>
+  <form id="authForm" novalidate>
+   <div class="fields">
+    ${m!=="recovery"?`<div class="field"><label for="a-email">Email</label><input id="a-email" type="email" autocomplete="username" value="${esc(S.authEmail)}" required></div>`:""}
+    ${m!=="forgot"?`<div class="field"><label for="a-pass">Password</label><input id="a-pass" type="password" autocomplete="${m==="recovery"?"new-password":"current-password"}" required></div>`:""}
+   </div>
+   ${A.err?`<p class="err">${esc(A.err)}</p>`:""}${A.msg?`<p class="note">${esc(A.msg)}</p>`:""}
+   <button class="save" type="submit" ${A.busy?"disabled":""}>${A.busy?"Please wait...":m==="forgot"?"Send reset link":m==="recovery"?"Save new password":"Sign in"}</button>
+  </form>
+  ${m==="login"?`<button class="linkbtn" data-act="authMode" data-mode="forgot">Forgot password?</button>`:m==="forgot"?`<button class="linkbtn" data-act="authMode" data-mode="login">Back to sign in</button>`:""}</div>`;
+}
+document.addEventListener("submit",async e=>{
+  if(e.target.id!=="authForm")return;e.preventDefault();
+  const f=e.target,m=S.auth.mode;
+  const em=(f.querySelector("#a-email")||{}).value,pw=(f.querySelector("#a-pass")||{}).value||"";
+  if(em!==undefined)S.authEmail=em.trim();
+  S.auth={mode:m,busy:true};render();
+  try{
+    if(m==="login"){
+      if(!S.authEmail||!pw)throw {friendly:"Enter your email and password."};
+      const r=await sb.auth.signInWithPassword({email:S.authEmail,password:pw});
+      if(r.error)throw {friendly:/invalid/i.test(r.error.message)?"Wrong email or password.":r.error.message};
+    }else if(m==="forgot"){
+      if(!S.authEmail)throw {friendly:"Enter your email."};
+      const r=await sb.auth.resetPasswordForEmail(S.authEmail,{redirectTo:location.origin+location.pathname});
+      if(r.error)throw {friendly:r.error.message};
+      S.auth={mode:"login",msg:"If that email has an account, a reset link is on its way."};render();
+    }else{
+      if(pw.length<8)throw {friendly:"Use at least 8 characters."};
+      const r=await sb.auth.updateUser({password:pw});
+      if(r.error)throw {friendly:r.error.message};
+      S.auth={mode:"login"};const s=(await sb.auth.getSession()).data.session;
+      if(s)start(s);else{S.auth.msg="Password saved. Sign in with it now.";render()}
+    }
+  }catch(err){S.auth={mode:m,err:(err&&err.friendly)||"Couldn’t reach the server. Check your connection and try again."};render()}
+});
+
+/* ---------- account sheet ---------- */
+function sheetAccount(){
+  return `<div class="top"><button class="icon" data-act="close" aria-label="Close">${I.close}</button><h2>Account</h2><span class="icon"></span></div>
+  <div class="fields" style="padding:16px"><p class="note" style="margin:0">Signed in as</p><p style="margin:2px 0 0;font-weight:500;word-break:break-all">${esc(S.email)}</p></div>
+  <p class="count">${S.items.length} items, ${S.outfits.length} outfits</p>
+  <button class="danger" style="color:var(--ink)" data-act="refresh" ${E.busy?"disabled":""}>${E.busy?"Refreshing...":"Refresh"}</button>
+  <button class="danger" data-act="signOut">Sign out</button>
+  ${E.status?`<p class="note" style="margin-top:12px">${esc(E.status)}</p>`:""}`;
+}
+async function refresh(){E.busy=true;E.status="";renderSheet();try{await loadAll();E.status="Up to date."}catch(e){E.status="Couldn’t refresh. Check your connection."}if(E&&E.kind==="account"){E.busy=false;renderSheet()}}
+async function signOut(){closeSheet();await sb.auth.signOut()}
+
+/* ---------- Supabase storage ---------- */
+const CONFIGURED=!SUPABASE_URL.startsWith("PASTE")&&!SUPABASE_ANON_KEY.startsWith("PASTE");
+const sb=CONFIGURED&&window.supabase?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+const COLS={items:["name","cat","sub","color","brand","season","notes","photo"],outfits:["name","occasion","notes","items"]};
+const DATA={items:[],outfits:[]};const listeners={};let signedAt=0,started=false;
+const uuid=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
+const pick=(name,d)=>{const r={};for(const k of COLS[name])if(k in d)r[k]=d[k];return r};
+const fromRow=r=>{const {id,user_id,created_at,...rest}=r;return {id,...rest,created:Date.parse(created_at)||0}};
+const check=res=>{if(res.error)throw res.error;return res.data};
+function notify(name){(listeners[name]||[]).forEach(f=>f({docs:DATA[name].map(r=>({id:r.id,data:()=>{const {id,...x}=r;return x}}))}))}
+async function signPhotos(paths,force){
+  const need=[...new Set(force?paths:paths.filter(p=>!URLS[p]))];
+  for(let i=0;i<need.length;i+=100){
+    const data=check(await sb.storage.from("photos").createSignedUrls(need.slice(i,i+100),604800));
+    data.forEach(d=>{if(d.signedUrl)URLS[d.path]=d.signedUrl});
+  }
+}
+async function loadAll(){
+  const [it,of]=await Promise.all([sb.from("items").select("*").order("created_at",{ascending:false}),sb.from("outfits").select("*").order("created_at",{ascending:false})]);
+  DATA.items=check(it).map(fromRow);DATA.outfits=check(of).map(fromRow);
+  const force=Date.now()-signedAt>3*864e5;
+  await signPhotos(DATA.items.map(i=>i.photo).filter(Boolean),force);if(force)signedAt=Date.now();
+  notify("items");notify("outfits");
+}
+const cloudDB={collection(path){const name=path.split("/").pop();return{
+  onSnapshot(f){(listeners[name]=listeners[name]||[]).push(f);return()=>{}},
+  async add(d){const row=fromRow(check(await sb.from(name).insert(pick(name,d)).select().single()));DATA[name].unshift(row);notify(name);return{id:row.id}},
+  doc(id){return{
+    async update(d){const row=fromRow(check(await sb.from(name).update(pick(name,d)).eq("id",id).select().single()));DATA[name]=DATA[name].map(r=>r.id===id?row:r);notify(name)},
+    async delete(){check(await sb.from(name).delete().eq("id",id));DATA[name]=DATA[name].filter(r=>r.id!==id);notify(name)}}}}}};
+const cloudAssets={
+  async upload(blob){
+    const type=blob.type||"image/jpeg",ext=type.split("/")[1].replace("jpeg","jpg");
+    const path=`${S.uid}/${uuid()}.${ext}`;
+    check(await sb.storage.from("photos").upload(path,blob,{contentType:type,upsert:false}));
+    URLS[path]=check(await sb.storage.from("photos").createSignedUrl(path,604800)).signedUrl;
+    return{id:path};
+  },
+  async delete(path){check(await sb.storage.from("photos").remove([path]));delete URLS[path]}
+};
+
+/* ---------- session ---------- */
+async function start(session){
+  S.session=session;S.uid=session.user.id;S.email=session.user.email;S.db=cloudDB;S.assets=cloudAssets;
+  S.auth={mode:"login"};S.fatal="";S.ready={items:false,outfits:false};render();
+  if(!started){started=true;
+    cloudDB.collection("items").onSnapshot(s=>{S.items=s.docs.map(d=>({id:d.id,...d.data()})).filter(i=>i.photo);S.ready.items=true;render()});
+    cloudDB.collection("outfits").onSnapshot(s=>{S.outfits=s.docs.map(d=>({id:d.id,...d.data()}));S.ready.outfits=true;render()});
+  }
+  try{await loadAll()}catch(e){S.fatal="<b>Couldn’t load your closet</b>Check your connection and reload the page.";render()}
+}
+function signedOut(){
+  S.session=null;S.items=[];S.outfits=[];DATA.items=[];DATA.outfits=[];for(const k in URLS)delete URLS[k];signedAt=0;
+  S.tab="closet";S.view={name:"home"};S.authChecked=true;if(E)closeSheet();else render();
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&S.session&&!E)loadAll().catch(()=>{})});
+
+/* ---------- boot ---------- */
+render();
+if(!CONFIGURED){S.fatal="<b>Setup not finished</b>Add your Supabase project URL and key at the top of index.html.";render()}
+else if(!sb){S.fatal="<b>Couldn’t load</b>Check your connection and reload the page.";render()}
+else{
+  sb.auth.onAuthStateChange((ev,session)=>{
+    if(ev==="PASSWORD_RECOVERY"){S.session=null;S.auth={mode:"recovery"};S.authChecked=true;render();return}
+    if(ev==="SIGNED_OUT"){signedOut();return}
+    if(S.auth.mode==="recovery")return;
+    if(session&&(!S.session||S.session.user.id!==session.user.id)){setTimeout(()=>start(session),0);return}
+    if(session)S.session=session;
+    if(ev==="INITIAL_SESSION"&&!session){S.authChecked=true;render()}
+  });
+}
+</script>
+</body>
+</html>
