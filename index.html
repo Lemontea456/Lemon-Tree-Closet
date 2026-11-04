@@ -483,7 +483,7 @@ async function start(session){
     cloudDB.collection("items").onSnapshot(s=>{S.items=s.docs.map(d=>({id:d.id,...d.data()})).filter(i=>i.photo);S.ready.items=true;render()});
     cloudDB.collection("outfits").onSnapshot(s=>{S.outfits=s.docs.map(d=>({id:d.id,...d.data()}));S.ready.outfits=true;render()});
   }
-  try{await loadAll()}catch(e){S.fatal="<b>Couldn’t load your closet</b>Check your connection and reload the page.";render()}
+  try{await loadAll()}catch(e){const d=[e&&e.code,e&&e.message,e&&e.hint].filter(Boolean).join(" | ")||String(e);S.fatal="<b>Couldn’t load your closet</b>Check your connection and reload the page.<br><small style=\"display:block;margin-top:10px;word-break:break-word\">Details: "+esc(d)+"</small>";render()}
 }
 function signedOut(){
   S.session=null;S.items=[];S.outfits=[];DATA.items=[];DATA.outfits=[];for(const k in URLS)delete URLS[k];signedAt=0;
