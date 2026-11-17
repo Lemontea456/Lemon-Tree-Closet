@@ -1,0 +1,18 @@
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "0 16 */3 * *"   # every 3 days, about 8 or 9 AM California time
+  workflow_dispatch:          # adds a "Run workflow" button for manual testing
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Contact the My Closet database
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://loarwsexikxtfnnsralk.supabase.co/rest/v1/closets?select=id&limit=1" \
+            -H "apikey: sb_publishable_IfjWzNr1h6TEVi6rgrwi_Q_RYGLHkvW")
+          echo "Supabase responded with status $code"
+          if [ "$code" != "200" ]; then exit 1; fi
